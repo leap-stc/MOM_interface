@@ -355,29 +355,66 @@ Global:
             for the MARBL tracer package."
         datatype: string
         value:
-            $MARBL_CONFIG == "latest": ecosys_jan_IC_omip_latlon_1x1_180W_c250613.nc
-            $MARBL_CONFIG == "latest+4p2z": ecosys_jan_IC_omip_latlon_1x1_180W_c250613.nc
-    MARBL_FESEDFLUX_FILE:
+            $MARBL_CONFIG == "latest": ${DIN_LOC_ROOT}/ocn/mom/grid_indpt/ecosys_jan_IC_omip_latlon_1x1_180W_c250613.nc
+            $MARBL_CONFIG == "latest+4p2z": ${DIN_LOC_ROOT}/ocn/mom/grid_indpt/ecosys_jan_IC_omip_latlon_1x1_180W_c250613.nc
+    MARBL_TRACERS_IC_FILE_OVERRIDE_POINTER:
         description: |
-            "Name of file containing iron sediment flux
-             forcing field for the MARBL tracer package."
+            "File containing tracer IC filenames overriding MARBL_TRACERS_IC_FILE."
         datatype: string
         value:
-            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v2"': fesedflux_2024algo_tx2_3v2.c251229.nc
-    MARBL_FESEDFLUXRED_FILE:
+            $MOM6_TRACER_IC_FILE_OVERRIDE_POINTER != "": $MOM6_TRACER_IC_FILE_OVERRIDE_POINTER
+            else:
+                $RUN_TYPE == "hybrid":
+                    = f'./rpointer.ocn.{$RUN_REFDATE}-{$RUN_REFTOD}'
+    MARBL_TRACERS_IC_FILE_IS_Z:
         description: |
-            "Name of file containing iron reducing sediment flux
-             forcing field for the MARBL tracer package."
+            "[Boolean] default = True
+            If true, MARBL_TRACERS_IC_FILE is in depth space, not layer space."
+        datatype: logical
+        units: Boolean
+        value:
+            $RUN_TYPE == "hybrid": False
+    MARBL_REMAP_NON_Z_IC:
+        description: |
+            "[Boolean] default = False
+            If true, and MARBL_IC_FILE_IS_Z is false,
+            then remap IC vals to current model thicknesses."
+        datatype: logical
+        units: Boolean
+        value:
+            $MOM6_PHYS_CYCLE_YEARS_IN_CYCLE > 0: True
+    MARBL_ENFORCE_TRACER_ZINT:
+        description: |
+            "Rescale MARBL tracers so that their vertical integrals match
+             their vertical integrals computed from the IC file(s).
+             Value is determined by MARBL_ENFORCE_TRACER_ZINT in env_run.xml"
+        datatype: logical
+        units: Boolean
+        value: $MARBL_ENFORCE_TRACER_ZINT
+    MARBL_TRACERS_INIT_VERTICAL_REMAP_ONLY:
+        description: |
+            "[Boolean] default = False
+            If true, initial conditions are on the model horizontal grid."
+        datatype: logical
+        units: Boolean
+        value:
+            $MOM6_PHYS_CYCLE_YEARS_IN_CYCLE > 0: True
+    MARBL_IC_MIN_VAL:
+        description: |
+            "Minimum value of tracer initial conditions
+             (when initializing from Z)"
+        datatype: real
+        units: conc units
+        value:
+            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $TEST': 1e-50
+    MARBL_FE_INTERIOR_SOURCE_FILE:
+        description: |
+            "Name of file containing iron sediment fluxes and vent
+             flux forcing fields for the MARBL tracer package."
         datatype: string
         value:
-            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v2"': fesedfluxRed_2024algo_tx2_3v2.c251229.nc
-    MARBL_FEVENTFLUX_FILE:
-        description: |
-            "Name of file containing iron sediment flux
-             forcing field for the MARBL tracer package."
-        datatype: string
-        value:
-            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v2"': feventflux_5gmol_tx2_3v2.c231205.nc
+            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v2"': fe_sources_sed2024algo_tx2_3v2_20260711.nc
+            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v3"': fe_sources_sed2024algo_vent2026algo_tx2_3v3.c260701.nc
     READ_RIV_FLUXES:
         description: |
             "Use river fluxes provided by RIV_FLUX_FILE."
@@ -392,6 +429,8 @@ Global:
         value:
             '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v2" and $ROF_GRID == "JRA025"': riv_nut.gnews_gnm.rJRA025_to_tx2_3v2_nnsm_e333r100_230415.20240202.nc
             '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v2" and $ROF_GRID == "r05"': riv_nut.gnews_gnm.r05_to_tx2_3v2_nnsm_e250r250_230914.20240202.nc
+            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v3" and $ROF_GRID == "JRA025"': riv_nut.gnews_gnm.rJRA025_to_tx2_3v3_nnsm_e100r100_260306.20260424.nc
+            '"BASE_BIO_ON=TRUE" in $MARBL_TRACER_OPTS and $OCN_GRID == "tx2_3v3" and $ROF_GRID == "r05"': riv_nut.gnews_gnm.r05_to_tx2_3v3_nnsm_e100r100_260306.20260424.nc
     MARBL_D14C_FILE_1:
         description: |
             "Name of file containing D14C forcing from 30 N to 90 N."
@@ -1424,6 +1463,8 @@ Global:
             by a comma or space, e.g. FILE:lev.nc,dz
             or FILE:lev.nc,interfaces=zw
             WOA09[:N]   - the WOA09 vertical grid (approximately)
+            WOA09INT[:N] - layers spanned by the WOA09 depths
+            WOA23INT[:N] - layers spanned by the WOA23 depths
             FNC1:string - FNC1:dz_min,H_total,power,precision
             HYBRID:string - read from a file. The string specifies
             the filename and two variable names, separated
@@ -1770,6 +1811,29 @@ Global:
         value:
             $OCN_GRID in ["tx2_3v2", "tx2_3v3"]: True
             $OCN_GRID == "tx2_0v1": True
+    MLE_TAPER_FN_DEPTH:
+        description: |
+            "[m] default = 0.0
+            Mixed layer (and mixing-layer) depths in the MLE restratification
+            schemes are replaced by H / (1 + (H/H0)**P) when
+            P=MLE_TAPER_FN_POWER > 0 and H0=MLE_TAPER_FN_DEPTH > 0."
+        datatype: real
+        units: m
+        value:
+            $OCN_GRID in ["tx2_3v2", "tx2_3v3"]: 2000.0
+            $OCN_GRID == "tx2_0v1": 2000.0
+    MLE_TAPER_FN_POWER:
+        description: |
+            "[nondim] default = 0
+            The power of H/H0 in the MLE mixed-layer depth tapering.
+            Any positive integer may be used, but even integers are more
+            efficient to calculate. Very large values may lead to numerical
+            instabilities."
+        datatype: integer
+        units: nondim
+        value:
+            $OCN_GRID in ["tx2_3v2", "tx2_3v3"]: 4
+            $OCN_GRID == "tx2_0v1": 4
     USE_CVMix_CONVECTION:
         description: |
             "[Boolean] default = False
@@ -2495,6 +2559,14 @@ Global:
         value:
             $COMP_ATM == "datm": True  # for C and G compsets
             else: False
+    ALLOW_GLC_RUNOFF_DIAGNOSTICS:
+        description: |
+            "[Boolean] default = False
+            If true, makes available diagnostics of separate glacier
+            runoff fluxes as seen by MOM6."
+        datatype: logical
+        units: Boolean
+        value: True
     MAX_DELTA_SRESTORE:
         description: |
             "[PSU or g kg-1] default = 999.0
@@ -3388,14 +3460,35 @@ Global:
         value:
             $RUN_TYPE == "hybrid":
                 = f'./{$RUN_REFCASE}.mom6{$INST_SUFFIX}.r.{$RUN_REFDATE}-{$RUN_REFTOD}.nc'
-    AGE_IC_FILE:
+    REMAP_AFTER_INITIALIZATION:
         description: |
-            "The file in which the age-tracer initial values can be found, or an empty
-            string for internal initialization."
+            "[Boolean] default = True
+            If true, applies regridding and remapping immediately after
+            initialization so that the state is ALE consistent. This is a
+            legacy step and should not be needed if the initialization is
+            consistent with the coordinate mode."
+        datatype: logical
+        units: Boolean
+        value:
+            $RUN_TYPE == "hybrid": False
+    AGE_IC_FILE_OVERRIDE_POINTER:
+        description: |
+            "File containing tracer IC filenames overriding AGE_IC_FILE."
         datatype: string
         value:
-            $RUN_TYPE == "hybrid" and $CONTINUE_RUN == False:
-                = f'./{$RUN_REFCASE}.mom6{$INST_SUFFIX}.r.{$RUN_REFDATE}-{$RUN_REFTOD}.nc'
+            $MOM6_TRACER_IC_FILE_OVERRIDE_POINTER != "": $MOM6_TRACER_IC_FILE_OVERRIDE_POINTER
+            else:
+                $RUN_TYPE == "hybrid":
+                    = f'./rpointer.ocn.{$RUN_REFDATE}-{$RUN_REFTOD}'
+    AGE_REMAP_NON_Z_IC:
+        description: |
+            "[Boolean] default = False
+            If true, and AGE_IC_FILE_IS_Z is false,
+            then remap IC vals to current model thicknesses."
+        datatype: logical
+        units: Boolean
+        value:
+            $MOM6_PHYS_CYCLE_YEARS_IN_CYCLE > 0: True
     T_REF:
         description: |
             "[degC]
@@ -3955,7 +4048,9 @@ Global:
             run with a different mask_table than the current run, in which case the
             checksums will not match and cause crash.
         datatype: logical
-        value: $TEST
+        value: 
+            $TEST: = $TESTCASE != "ERP"
+            else: False
     ENSEMBLE_APPENDIX_PREFIX:
         description: |
             "default = ''
